@@ -6,7 +6,6 @@ export class Room {
     constructor(state, env) {
         this.state = state;
         this.env = env;
-        this.sessions = new Map(); // Map<WebSocket, { id: string }>
         this.drawings = [];
 
         // Load persisted state
@@ -28,24 +27,27 @@ export class Room {
         const pair = new WebSocketPair();
         const [client, server] = Object.values(pair);
 
-        // Accept the WebSocket with hibernation support
-        this.state.acceptWebSocket(server);
-
         // Generate a unique ID for this session
         const sessionId = crypto.randomUUID();
-        server.serializeAttachment({ id: sessionId });
 
-        // Send current state to new client
+        // Accept the WebSocket with hibernation support
+        this.state.acceptWebSocket(server, [sessionId]);
+
+        // Get current connection count
+        const sockets = this.state.getWebSockets();
+        const userCount = sockets.length;
+
+        // Send current state to new client (after accept)
         server.send(JSON.stringify({
             type: 'load-state',
             drawings: this.drawings,
-            userCount: this.sessions.size + 1
+            userCount: userCount
         }));
 
         // Notify others of new user
         this.broadcast({
             type: 'user-count',
-            count: this.sessions.size + 1
+            count: userCount
         }, server);
 
         return new Response(null, { status: 101, webSocket: client });
@@ -54,7 +56,8 @@ export class Room {
     async webSocketMessage(ws, message) {
         try {
             const data = JSON.parse(message);
-            const session = ws.deserializeAttachment();
+            const tags = this.state.getTags(ws);
+            const sessionId = tags[0] || 'unknown';
 
             switch (data.type) {
                 case 'draw':
@@ -69,7 +72,7 @@ export class Room {
                 case 'cursor-move':
                     this.broadcast({
                         type: 'cursor-move',
-                        userId: session.id,
+                        userId: sessionId,
                         position: data.position
                     }, ws);
                     break;

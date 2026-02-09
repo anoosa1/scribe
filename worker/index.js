@@ -22,7 +22,8 @@ export default {
             return roomObject.fetch(request);
         }
 
-        // Serve static files from the site bucket
-        return env.ASSETS.fetch(request);
+        // For all other routes, let the assets binding handle it
+        // This is handled automatically by Wrangler v4 with assets config
+        return new Response('Not found', { status: 404 });
     }
 };
