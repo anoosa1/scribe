@@ -1,4 +1,4 @@
-import SocketClient from './socket.js';
+import { WebSocketClient } from './websocket.js';
 import { Canvas } from './canvas.js';
 import { TOOLS } from './tools.js';
 
@@ -22,7 +22,7 @@ const init = () => {
     document.getElementById('room-id-display').textContent = roomId.substring(0, 8) + '...';
     document.getElementById('room-id-display').title = roomId;
 
-    // 2. Initialize Socket
+    // 2. Initialize WebSocket and Canvas
     const canvasEl = document.getElementById('whiteboard');
     const zoomLevelEl = document.getElementById('zoom-level');
 
@@ -30,18 +30,15 @@ const init = () => {
         zoomLevelEl.textContent = level + '%';
     };
 
-    // Create a temporary socket wrapper for initialization
     let canvas;
 
-    const socket = new SocketClient(
-        'http://localhost:3001',
-        roomId,
-        (action) => canvas && canvas.drawRemote(action),
-        (cursorData) => { /* Remote cursors */ },
-        (count) => { document.getElementById('user-count').textContent = count; },
-        () => canvas && canvas.clear(),
-        (drawings) => canvas && canvas.reloadFromState(drawings)
-    );
+    const socket = new WebSocketClient(roomId, {
+        onDraw: (action) => canvas && canvas.drawRemote(action),
+        onCursorMove: (data) => { /* Remote cursors */ },
+        onUserCount: (count) => { document.getElementById('user-count').textContent = count; },
+        onClear: () => canvas && canvas.clear(),
+        onReloadState: (drawings) => canvas && canvas.reloadFromState(drawings)
+    });
 
     canvas = new Canvas(canvasEl, socket, onZoomChange);
 
@@ -144,7 +141,7 @@ const init = () => {
         });
     });
 
-    // 9. Keyboard shortcuts
+    // 10. Keyboard shortcuts
     document.addEventListener('keydown', (e) => {
         if (e.target.tagName === 'INPUT') return;
 

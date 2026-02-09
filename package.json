@@ -1,19 +1,15 @@
 {
-  "name": "collaborative-whiteboard",
+  "name": "collaboard",
   "version": "1.0.0",
-  "description": "Real-time collaborative whiteboard app",
+  "description": "Real-time collaborative whiteboard on Cloudflare Workers",
   "scripts": {
-    "dev": "vite",
+    "dev": "wrangler dev",
     "build": "vite build",
-    "preview": "vite preview",
-    "dev:all": "concurrently \"npm run dev\" \"cd server && npm start\""
-  },
-  "dependencies": {
-    "socket.io-client": "^4.8.1",
-    "uuid": "^11.0.5"
+    "deploy": "vite build && wrangler deploy",
+    "preview": "vite preview"
   },
   "devDependencies": {
-    "concurrently": "^9.1.2",
-    "vite": "^6.1.0"
+    "vite": "^6.1.0",
+    "wrangler": "^3.99.0"
   }
 }
