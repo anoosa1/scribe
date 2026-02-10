@@ -80,6 +80,24 @@ const init = () => {
         canvas.resetView();
     });
 
+    // Import Image
+    const imageFileInput = document.getElementById('image-file-input');
+    document.getElementById('import-image').addEventListener('click', () => {
+        imageFileInput.click();
+    });
+    imageFileInput.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (file) {
+            canvas.importImage(file);
+            imageFileInput.value = ''; // Reset so same file can be imported again
+        }
+    });
+
+    // Export PNG
+    document.getElementById('export-png').addEventListener('click', () => {
+        canvas.exportAsImage();
+    });
+
     // 5. Zoom controls
     document.getElementById('zoom-in').addEventListener('click', () => {
         canvas.zoomIn();

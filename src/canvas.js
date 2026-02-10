@@ -400,6 +400,8 @@ export class Canvas {
             this.ctx.stroke();
         } else if (type === 'text') {
             this.drawText(text, x, y, color, size);
+        } else if (type === 'image') {
+            this.drawImageOnCanvas(data.dataUrl, data.x, data.y, data.width, data.height);
         }
 
         // Store for potential replay
@@ -410,6 +412,67 @@ export class Canvas {
         this.ctx.font = `${Math.max(size * 3, 16)}px Inter, sans-serif`;
         this.ctx.fillStyle = color;
         this.ctx.fillText(text, x, y);
+    }
+
+    drawImageOnCanvas(dataUrl, x, y, width, height) {
+        const img = new Image();
+        img.onload = () => {
+            this.ctx.drawImage(img, x, y, width, height);
+        };
+        img.src = dataUrl;
+    }
+
+    importImage(file) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const dataUrl = e.target.result;
+                const img = new Image();
+                img.onload = () => {
+                    // Scale image to fit reasonably on canvas (max 800px wide/tall)
+                    let width = img.width;
+                    let height = img.height;
+                    const maxDim = 800;
+                    if (width > maxDim || height > maxDim) {
+                        const ratio = Math.min(maxDim / width, maxDim / height);
+                        width = Math.round(width * ratio);
+                        height = Math.round(height * ratio);
+                    }
+
+                    // Center on the visible viewport area
+                    const container = this.canvas.parentElement;
+                    const containerRect = container.getBoundingClientRect();
+                    const centerX = (containerRect.width / 2 - this.offsetX) / this.scale;
+                    const centerY = (containerRect.height / 2 - this.offsetY) / this.scale;
+                    const x = centerX - width / 2;
+                    const y = centerY - height / 2;
+
+                    // Draw on canvas
+                    this.ctx.drawImage(img, x, y, width, height);
+
+                    // Create and emit action
+                    const action = {
+                        type: 'image',
+                        dataUrl,
+                        x, y, width, height
+                    };
+                    this.socket.emitDraw(action);
+                    this.drawingActions.push(action);
+                    resolve();
+                };
+                img.onerror = reject;
+                img.src = dataUrl;
+            };
+            reader.onerror = reject;
+            reader.readAsDataURL(file);
+        });
+    }
+
+    exportAsImage() {
+        const link = document.createElement('a');
+        link.download = 'whiteboard.png';
+        link.href = this.canvas.toDataURL('image/png');
+        link.click();
     }
 
     clear() {
