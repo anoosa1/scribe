@@ -4,7 +4,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Collaborative Whiteboard</title>
+  <title>Scribe</title>
   <link rel="stylesheet" href="/src/style.css" />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 </head>
@@ -91,14 +91,24 @@
         </div>
 
         <div class="toolbar-section">
-          <span class="section-label">Canvas Size</span>
-          <select id="canvas-size" class="canvas-size-select">
-            <option value="1920x1080">1920 × 1080</option>
-            <option value="2560x1440">2560 × 1440</option>
-            <option value="3000x2000" selected>3000 × 2000</option>
-            <option value="4000x3000">4000 × 3000</option>
-            <option value="custom">Custom...</option>
-          </select>
+          <span class="section-label">Canvas</span>
+          <div class="canvas-options">
+            <select id="canvas-size" class="canvas-size-select">
+              <option value="1920x1080">1920 × 1080</option>
+              <option value="2560x1440">2560 × 1440</option>
+              <option value="3000x2000" selected>3000 × 2000</option>
+              <option value="4000x3000">4000 × 3000</option>
+              <option value="custom">Custom...</option>
+            </select>
+            <label class="dark-mode-toggle" title="Dark Mode">
+              <input type="checkbox" id="dark-mode-checkbox">
+              <span class="toggle-track">
+                <span class="toggle-icon sun">☀️</span>
+                <span class="toggle-icon moon">🌙</span>
+                <span class="toggle-thumb"></span>
+              </span>
+            </label>
+          </div>
         </div>
 
         <div class="toolbar-section actions">
@@ -259,6 +269,28 @@
           <div class="text-input-actions">
             <button id="text-cancel" class="text-btn">Cancel</button>
             <button id="text-confirm" class="text-btn primary">Add</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Canvas Size Modal -->
+      <div id="canvas-size-overlay" class="text-input-overlay hidden">
+        <div class="text-input-container">
+          <span class="section-label" style="margin-bottom: 12px; display: block;">Custom Canvas Size</span>
+          <div class="canvas-size-inputs">
+            <div class="size-input-group">
+              <label for="canvas-width-input">Width</label>
+              <input type="number" id="canvas-width-input" value="3000" min="100" max="10000" autocomplete="off">
+            </div>
+            <span class="size-separator">×</span>
+            <div class="size-input-group">
+              <label for="canvas-height-input">Height</label>
+              <input type="number" id="canvas-height-input" value="2000" min="100" max="10000" autocomplete="off">
+            </div>
+          </div>
+          <div class="text-input-actions">
+            <button id="canvas-size-cancel" class="text-btn">Cancel</button>
+            <button id="canvas-size-confirm" class="text-btn primary">Apply</button>
           </div>
         </div>
       </div>

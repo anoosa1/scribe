@@ -199,18 +199,70 @@ const init = () => {
 
     // 8. Canvas Size
     const canvasSizeSelect = document.getElementById('canvas-size');
+    const canvasSizeOverlay = document.getElementById('canvas-size-overlay');
+    const canvasWidthInput = document.getElementById('canvas-width-input');
+    const canvasHeightInput = document.getElementById('canvas-height-input');
+    const canvasSizeConfirm = document.getElementById('canvas-size-confirm');
+    const canvasSizeCancel = document.getElementById('canvas-size-cancel');
+
+    const openCanvasSizeModal = () => {
+        canvasWidthInput.value = canvas.virtualWidth;
+        canvasHeightInput.value = canvas.virtualHeight;
+        canvasSizeOverlay.classList.remove('hidden');
+        canvasWidthInput.focus();
+        canvasWidthInput.select();
+    };
+
+    const closeCanvasSizeModal = () => {
+        canvasSizeOverlay.classList.add('hidden');
+        // Reset select to current size
+        const current = `${canvas.virtualWidth}x${canvas.virtualHeight}`;
+        const option = [...canvasSizeSelect.options].find(o => o.value === current);
+        canvasSizeSelect.value = option ? current : 'custom';
+    };
+
+    const applyCanvasSize = () => {
+        const width = Math.min(Math.max(parseInt(canvasWidthInput.value, 10) || 3000, 100), 10000);
+        const height = Math.min(Math.max(parseInt(canvasHeightInput.value, 10) || 2000, 100), 10000);
+        canvas.resizeCanvas(width, height);
+        closeCanvasSizeModal();
+    };
+
     canvasSizeSelect.addEventListener('change', (e) => {
         const value = e.target.value;
         if (value === 'custom') {
-            const widthInput = prompt('Enter width (px):', '3000');
-            const heightInput = prompt('Enter height (px):', '2000');
-            const width = parseInt(widthInput, 10) || 3000;
-            const height = parseInt(heightInput, 10) || 2000;
-            canvas.resizeCanvas(width, height);
+            openCanvasSizeModal();
         } else {
             const [width, height] = value.split('x').map(Number);
             canvas.resizeCanvas(width, height);
         }
+    });
+
+    canvasSizeConfirm.addEventListener('click', applyCanvasSize);
+    canvasSizeCancel.addEventListener('click', closeCanvasSizeModal);
+
+    canvasSizeOverlay.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            applyCanvasSize();
+        } else if (e.key === 'Escape') {
+            closeCanvasSizeModal();
+        }
+    });
+
+    // 8b. Dark Mode Toggle
+    const darkModeCheckbox = document.getElementById('dark-mode-checkbox');
+    const savedDarkMode = localStorage.getItem('scribe-dark-mode') === 'true';
+
+    if (savedDarkMode) {
+        darkModeCheckbox.checked = true;
+        canvas.setDarkMode(true);
+    }
+
+    darkModeCheckbox.addEventListener('change', () => {
+        const enabled = darkModeCheckbox.checked;
+        canvas.setDarkMode(enabled);
+        localStorage.setItem('scribe-dark-mode', enabled);
     });
 
     // 9. Copy Room Link

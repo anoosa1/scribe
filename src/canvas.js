@@ -32,6 +32,9 @@ export class Canvas {
         // Drawing history for redraw on resize
         this.drawingActions = [];
 
+        // Dark mode
+        this.darkMode = false;
+
         // Per-user remote drawing paths (keyed by userId)
         this.remoteUserPaths = new Map();
 
@@ -47,14 +50,16 @@ export class Canvas {
     }
 
     drawBackground() {
-        // Fill white background
-        this.ctx.fillStyle = '#ffffff';
+        const bgColor = this.darkMode ? '#1e1e1e' : '#ffffff';
+        const dotColor = this.darkMode ? '#3a3a3a' : '#d0d0d0';
+
+        this.ctx.fillStyle = bgColor;
         this.ctx.fillRect(0, 0, this.virtualWidth, this.virtualHeight);
 
         // Draw dot grid
         const dotSpacing = 20;
         const dotRadius = 1;
-        this.ctx.fillStyle = '#d0d0d0';
+        this.ctx.fillStyle = dotColor;
 
         for (let x = dotSpacing; x < this.virtualWidth; x += dotSpacing) {
             for (let y = dotSpacing; y < this.virtualHeight; y += dotSpacing) {
@@ -63,6 +68,10 @@ export class Canvas {
                 this.ctx.fill();
             }
         }
+    }
+
+    get bgColor() {
+        return this.darkMode ? '#1e1e1e' : '#ffffff';
     }
 
     centerCanvas() {
@@ -151,7 +160,7 @@ export class Canvas {
                 type: 'start',
                 x: this.startX,
                 y: this.startY,
-                color: this.currentTool === TOOLS.ERASER ? '#ffffff' : this.color,
+                color: this.currentTool === TOOLS.ERASER ? this.bgColor : this.color,
                 size: this.size,
                 tool: this.currentTool
             };
@@ -187,7 +196,7 @@ export class Canvas {
             this.ctx.lineWidth = this.size;
             this.ctx.lineCap = 'round';
             this.ctx.lineJoin = 'round';
-            this.ctx.strokeStyle = this.currentTool === TOOLS.ERASER ? '#ffffff' : this.color;
+            this.ctx.strokeStyle = this.currentTool === TOOLS.ERASER ? this.bgColor : this.color;
 
             this.ctx.lineTo(pos.x, pos.y);
             this.ctx.stroke();
@@ -606,5 +615,16 @@ export class Canvas {
 
         // Recenter canvas
         this.centerCanvas();
+    }
+
+    async setDarkMode(enabled) {
+        this.darkMode = enabled;
+        // Redraw background and replay all actions
+        this.drawBackground();
+        const actions = [...this.drawingActions];
+        this.drawingActions = [];
+        for (const d of actions) {
+            await this.drawRemote(d);
+        }
     }
 }
