@@ -61,9 +61,18 @@ export class Room {
 
             switch (data.type) {
                 case 'draw':
+                    // Guard against oversized payloads (e.g. uncompressed images)
+                    const actionStr = JSON.stringify(data.action);
+                    if (actionStr.length > 900 * 1024) {
+                        ws.send(JSON.stringify({
+                            type: 'error',
+                            message: 'Draw action too large to sync'
+                        }));
+                        break;
+                    }
                     this.drawings.push(data.action);
-                    // Persist drawings periodically (every 10 actions)
-                    if (this.drawings.length % 10 === 0) {
+                    // Persist immediately for images (high-value), otherwise every 10 actions
+                    if (data.action.type === 'image' || this.drawings.length % 10 === 0) {
                         await this.state.storage.put('drawings', this.drawings);
                     }
                     this.broadcast({ type: 'draw', action: data.action }, ws);

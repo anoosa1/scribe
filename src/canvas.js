@@ -426,17 +426,33 @@ export class Canvas {
         return new Promise((resolve, reject) => {
             const reader = new FileReader();
             reader.onload = (e) => {
-                const dataUrl = e.target.result;
+                const originalDataUrl = e.target.result;
                 const img = new Image();
                 img.onload = () => {
-                    // Scale image to fit reasonably on canvas (max 800px wide/tall)
+                    // Scale image to fit reasonably on canvas (max 600px wide/tall)
                     let width = img.width;
                     let height = img.height;
-                    const maxDim = 800;
+                    const maxDim = 600;
                     if (width > maxDim || height > maxDim) {
                         const ratio = Math.min(maxDim / width, maxDim / height);
                         width = Math.round(width * ratio);
                         height = Math.round(height * ratio);
+                    }
+
+                    // Compress via off-screen canvas → JPEG at 60% quality
+                    const tempCanvas = document.createElement('canvas');
+                    tempCanvas.width = width;
+                    tempCanvas.height = height;
+                    const tempCtx = tempCanvas.getContext('2d');
+                    tempCtx.drawImage(img, 0, 0, width, height);
+                    const compressedDataUrl = tempCanvas.toDataURL('image/jpeg', 0.6);
+
+                    // Safety check: reject if still too large (> 500 KB)
+                    const sizeKB = Math.round((compressedDataUrl.length * 3) / 4 / 1024);
+                    if (sizeKB > 500) {
+                        alert(`Image is too large to sync (${sizeKB} KB after compression). Please use a smaller image.`);
+                        reject(new Error('Image too large'));
+                        return;
                     }
 
                     // Center on the visible viewport area
@@ -450,10 +466,10 @@ export class Canvas {
                     // Draw on canvas
                     this.ctx.drawImage(img, x, y, width, height);
 
-                    // Create and emit action
+                    // Create and emit action with compressed data
                     const action = {
                         type: 'image',
-                        dataUrl,
+                        dataUrl: compressedDataUrl,
                         x, y, width, height
                     };
                     this.socket.emitDraw(action);
@@ -461,7 +477,7 @@ export class Canvas {
                     resolve();
                 };
                 img.onerror = reject;
-                img.src = dataUrl;
+                img.src = originalDataUrl;
             };
             reader.onerror = reject;
             reader.readAsDataURL(file);
