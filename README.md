@@ -9,7 +9,7 @@ Built on Cloudflare Workers + Durable Objects for the backend, vanilla JS for th
 - Freehand drawing, shapes (lines, rectangles, circles), text, eraser
 - Import images onto the canvas
 - Export the canvas as a PNG
-- Real-time sync — everyone in the room sees everything as it happens
+- Real-time collaboration
 - Pan & zoom (scroll wheel or Space + drag)
 - Room state persists in Durable Object storage so late joiners see existing drawings
 - Rooms clean up automatically when everyone leaves
