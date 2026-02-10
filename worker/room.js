@@ -111,19 +111,24 @@ export class Room {
     }
 
     async webSocketClose(ws, code, reason, wasClean) {
-        // Get all connected WebSockets
+        // Close the socket explicitly so it's cleaned up
+        try { ws.close(code, 'Durable Object is closing WebSocket'); } catch (e) { }
+
+        // Get remaining connected WebSockets (exclude the one that just closed)
         const sockets = this.state.getWebSockets();
-        const userCount = sockets.length;
+        const remaining = sockets.filter(s => s !== ws);
+        const userCount = remaining.length;
 
         // Notify remaining users
-        this.broadcastAll({
-            type: 'user-count',
-            count: userCount
-        });
+        for (const socket of remaining) {
+            try {
+                socket.send(JSON.stringify({ type: 'user-count', count: userCount }));
+            } catch (e) { }
+        }
 
-        // If room is empty, optionally clear state
+        // If room is empty, clear persisted state
         if (userCount === 0) {
-            await this.state.storage.delete('drawings');
+            await this.state.storage.deleteAll();
             this.drawings = [];
         }
     }
