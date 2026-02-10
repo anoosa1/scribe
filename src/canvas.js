@@ -32,6 +32,9 @@ export class Canvas {
         // Drawing history for redraw on resize
         this.drawingActions = [];
 
+        // Per-user remote drawing paths (keyed by userId)
+        this.remoteUserPaths = new Map();
+
         this.setupCanvas();
         this.bindEvents();
     }
@@ -253,24 +256,76 @@ export class Canvas {
     handleTouchStart(e) {
         e.preventDefault();
         if (e.touches.length === 1) {
+            // Don't draw if mobile panel is open
+            const toolbar = document.getElementById('toolbar');
+            if (toolbar && toolbar.classList.contains('open')) return;
+
             const touch = e.touches[0];
             this.handleMouseDown({ clientX: touch.clientX, clientY: touch.clientY });
         } else if (e.touches.length === 2) {
-            // Two finger gesture - start pinch zoom
-            this.isPanning = true;
+            // Start pinch-to-zoom / two-finger pan
+            this.isDrawing = false; // Cancel any single-finger drawing
+            this.isPinching = true;
+            const t1 = e.touches[0];
+            const t2 = e.touches[1];
+            this.pinchStartDist = Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY);
+            this.pinchStartScale = this.scale;
+            this.pinchCenterX = (t1.clientX + t2.clientX) / 2;
+            this.pinchCenterY = (t1.clientY + t2.clientY) / 2;
+            this.lastPinchCenterX = this.pinchCenterX;
+            this.lastPinchCenterY = this.pinchCenterY;
         }
     }
 
     handleTouchMove(e) {
         e.preventDefault();
-        if (e.touches.length === 1 && !this.isPanning) {
+        if (e.touches.length === 2 && this.isPinching) {
+            const t1 = e.touches[0];
+            const t2 = e.touches[1];
+            const dist = Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY);
+            const centerX = (t1.clientX + t2.clientX) / 2;
+            const centerY = (t1.clientY + t2.clientY) / 2;
+
+            // Pinch zoom
+            const scaleFactor = dist / this.pinchStartDist;
+            const newScale = Math.min(Math.max(this.pinchStartScale * scaleFactor, 0.1), 5);
+
+            const container = this.canvas.parentElement;
+            const rect = container.getBoundingClientRect();
+            const mouseX = this.pinchCenterX - rect.left;
+            const mouseY = this.pinchCenterY - rect.top;
+
+            this.offsetX = mouseX - (mouseX - this.offsetX) * (newScale / this.scale);
+            this.offsetY = mouseY - (mouseY - this.offsetY) * (newScale / this.scale);
+            this.scale = newScale;
+
+            // Two-finger pan
+            const dx = centerX - this.lastPinchCenterX;
+            const dy = centerY - this.lastPinchCenterY;
+            this.offsetX += dx;
+            this.offsetY += dy;
+            this.lastPinchCenterX = centerX;
+            this.lastPinchCenterY = centerY;
+
+            this.updateCanvasTransform();
+        } else if (e.touches.length === 1 && !this.isPinching) {
             const touch = e.touches[0];
             this.handleMouseMove({ clientX: touch.clientX, clientY: touch.clientY });
         }
     }
 
     handleTouchEnd(e) {
-        this.handleMouseUp({ clientX: 0, clientY: 0 });
+        if (this.isPinching) {
+            this.isPinching = false;
+            return;
+        }
+        // Use last known touch position for accurate end coords
+        if (e.changedTouches && e.changedTouches.length > 0) {
+            const touch = e.changedTouches[0];
+            this.handleMouseUp({ clientX: touch.clientX, clientY: touch.clientY });
+        } else {
+            this.handleMouseUp({ clientX: 0, clientY: 0 });
+        }
     }
 
     handleWheel(e) {
@@ -371,23 +426,37 @@ export class Canvas {
     }
 
     drawRemote(data) {
-        const { type, x, y, start, end, color, size, tool, text } = data;
-
-        this.ctx.lineWidth = size;
-        this.ctx.lineCap = 'round';
-        this.ctx.lineJoin = 'round';
-        this.ctx.strokeStyle = color;
+        const { type, x, y, start, end, color, size, tool, text, userId } = data;
+        // Use a fallback userId for legacy actions without one
+        const uid = userId || '__legacy__';
 
         if (type === 'start') {
-            this.ctx.beginPath();
-            this.ctx.moveTo(x, y);
+            // Initialize per-user path state
+            this.remoteUserPaths.set(uid, { lastX: x, lastY: y, color, size, tool });
         } else if (type === 'draw') {
-            this.ctx.lineTo(x, y);
-            this.ctx.stroke();
+            const userPath = this.remoteUserPaths.get(uid);
+            if (userPath) {
+                // Draw an independent segment (no shared path accumulation)
+                this.ctx.beginPath();
+                this.ctx.lineWidth = userPath.size;
+                this.ctx.lineCap = 'round';
+                this.ctx.lineJoin = 'round';
+                this.ctx.strokeStyle = userPath.color;
+                this.ctx.moveTo(userPath.lastX, userPath.lastY);
+                this.ctx.lineTo(x, y);
+                this.ctx.stroke();
+                // Update last position
+                userPath.lastX = x;
+                userPath.lastY = y;
+            }
         } else if (type === 'end') {
-            this.ctx.beginPath();
+            this.remoteUserPaths.delete(uid);
         } else if (type === 'shape') {
             this.ctx.beginPath();
+            this.ctx.lineWidth = size;
+            this.ctx.lineCap = 'round';
+            this.ctx.lineJoin = 'round';
+            this.ctx.strokeStyle = color;
             if (tool === TOOLS.LINE) {
                 this.ctx.moveTo(start.x, start.y);
                 this.ctx.lineTo(end.x, end.y);
@@ -401,7 +470,8 @@ export class Canvas {
         } else if (type === 'text') {
             this.drawText(text, x, y, color, size);
         } else if (type === 'image') {
-            this.drawImageOnCanvas(data.dataUrl, data.x, data.y, data.width, data.height);
+            return this.drawImageOnCanvas(data.dataUrl, data.x, data.y, data.width, data.height)
+                .then(() => { this.drawingActions.push(data); });
         }
 
         // Store for potential replay
@@ -415,11 +485,15 @@ export class Canvas {
     }
 
     drawImageOnCanvas(dataUrl, x, y, width, height) {
-        const img = new Image();
-        img.onload = () => {
-            this.ctx.drawImage(img, x, y, width, height);
-        };
-        img.src = dataUrl;
+        return new Promise((resolve) => {
+            const img = new Image();
+            img.onload = () => {
+                this.ctx.drawImage(img, x, y, width, height);
+                resolve();
+            };
+            img.onerror = () => resolve(); // Don't block on broken images
+            img.src = dataUrl;
+        });
     }
 
     importImage(file) {
@@ -496,9 +570,11 @@ export class Canvas {
         this.drawingActions = [];
     }
 
-    reloadFromState(drawings) {
+    async reloadFromState(drawings) {
         this.clear();
-        drawings.forEach(d => this.drawRemote(d));
+        for (const d of drawings) {
+            await this.drawRemote(d);
+        }
     }
 
     resizeCanvas(width, height) {

@@ -183,6 +183,77 @@ const init = () => {
             socket.emitUndo();
         }
     });
+
+    // ======== 11. Mobile Toolbar Logic ========
+    const isMobileQuery = window.matchMedia('(max-width: 768px)');
+    const toolbar = document.getElementById('toolbar');
+    const mobileBackdrop = document.getElementById('mobile-backdrop');
+    const panelToggle = document.getElementById('mobile-panel-toggle');
+    const mobileToolBtns = document.querySelectorAll('.mobile-tool-btn[data-tool]');
+
+    let panelOpen = false;
+
+    const openPanel = () => {
+        panelOpen = true;
+        toolbar.classList.add('open');
+        mobileBackdrop.classList.add('visible');
+        mobileBackdrop.classList.remove('hidden');
+        panelToggle.classList.add('panel-open');
+    };
+
+    const closePanel = () => {
+        panelOpen = false;
+        toolbar.classList.remove('open');
+        mobileBackdrop.classList.remove('visible');
+        mobileBackdrop.classList.add('hidden');
+        panelToggle.classList.remove('panel-open');
+    };
+
+    if (panelToggle) {
+        panelToggle.addEventListener('click', () => {
+            panelOpen ? closePanel() : openPanel();
+        });
+    }
+
+    if (mobileBackdrop) {
+        mobileBackdrop.addEventListener('click', closePanel);
+    }
+
+    // Mobile tool buttons sync with desktop sidebar
+    mobileToolBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+            const tool = btn.dataset.tool;
+
+            // Update mobile active state
+            mobileToolBtns.forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+
+            // Trigger matching desktop button
+            const desktopBtn = document.getElementById(tool);
+            if (desktopBtn) desktopBtn.click();
+
+            // Close panel if open
+            closePanel();
+        });
+    });
+
+    // Sync desktop tool button clicks back to mobile buttons
+    document.querySelectorAll('.tool-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const toolId = btn.id;
+            mobileToolBtns.forEach(mb => {
+                mb.classList.toggle('active', mb.dataset.tool === toolId);
+            });
+        });
+    });
+
+    // Mobile undo button
+    const mobileUndo = document.getElementById('mobile-undo');
+    if (mobileUndo) {
+        mobileUndo.addEventListener('click', () => {
+            socket.emitUndo();
+        });
+    }
 };
 
 init();

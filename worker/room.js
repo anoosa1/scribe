@@ -70,12 +70,14 @@ export class Room {
                         }));
                         break;
                     }
-                    this.drawings.push(data.action);
+                    // Attach userId so clients can isolate per-user paths
+                    const action = { ...data.action, userId: sessionId };
+                    this.drawings.push(action);
                     // Persist immediately for images (high-value), otherwise every 10 actions
-                    if (data.action.type === 'image' || this.drawings.length % 10 === 0) {
+                    if (action.type === 'image' || this.drawings.length % 10 === 0) {
                         await this.state.storage.put('drawings', this.drawings);
                     }
-                    this.broadcast({ type: 'draw', action: data.action }, ws);
+                    this.broadcast({ type: 'draw', action }, ws);
                     break;
 
                 case 'cursor-move':

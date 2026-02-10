@@ -57,9 +57,9 @@ export class WebSocketClient {
     handleMessage(data) {
         switch (data.type) {
             case 'load-state':
-                // Initial state load
-                if (data.drawings) {
-                    data.drawings.forEach(action => this.handlers.onDraw(action));
+                // Initial state load — use sequential replay for correct image z-order
+                if (data.drawings && data.drawings.length > 0) {
+                    this.handlers.onReloadState(data.drawings);
                 }
                 if (data.userCount) {
                     this.handlers.onUserCount(data.userCount);
