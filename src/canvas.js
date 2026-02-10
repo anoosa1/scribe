@@ -95,9 +95,11 @@ export class Canvas {
         // Zoom with mouse wheel
         this.canvas.parentElement.addEventListener('wheel', this.handleWheel.bind(this), { passive: false });
 
-        // Space key for panning
+        // Space key for panning (ignore when typing in inputs)
         document.addEventListener('keydown', (e) => {
+            if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
             if (e.code === 'Space' && !this.spacePressed) {
+                e.preventDefault();
                 this.spacePressed = true;
                 this.canvas.classList.add('panning');
             }
@@ -176,9 +178,10 @@ export class Canvas {
             return;
         }
 
-        if (!this.isDrawing) return;
-
+        // Emit cursor position for remote users (always, not just while drawing)
         this.socket.emitCursorMove(pos);
+
+        if (!this.isDrawing) return;
 
         if (this.currentTool === TOOLS.PENCIL || this.currentTool === TOOLS.ERASER) {
             this.ctx.lineWidth = this.size;
@@ -263,8 +266,14 @@ export class Canvas {
             const touch = e.touches[0];
             this.handleMouseDown({ clientX: touch.clientX, clientY: touch.clientY });
         } else if (e.touches.length === 2) {
-            // Start pinch-to-zoom / two-finger pan
-            this.isDrawing = false; // Cancel any single-finger drawing
+            // Emit end for any in-progress stroke before switching to pinch
+            if (this.isDrawing && (this.currentTool === TOOLS.PENCIL || this.currentTool === TOOLS.ERASER)) {
+                const endAction = { type: 'end' };
+                this.socket.emitDraw(endAction);
+                this.drawingActions.push(endAction);
+                this.ctx.beginPath();
+            }
+            this.isDrawing = false;
             this.isPinching = true;
             const t1 = e.touches[0];
             const t2 = e.touches[1];
@@ -441,6 +450,7 @@ export class Canvas {
                 this.ctx.lineWidth = userPath.size;
                 this.ctx.lineCap = 'round';
                 this.ctx.lineJoin = 'round';
+
                 this.ctx.strokeStyle = userPath.color;
                 this.ctx.moveTo(userPath.lastX, userPath.lastY);
                 this.ctx.lineTo(x, y);
@@ -470,11 +480,12 @@ export class Canvas {
         } else if (type === 'text') {
             this.drawText(text, x, y, color, size);
         } else if (type === 'image') {
+            // Image handled async — push after load, then return early
             return this.drawImageOnCanvas(data.dataUrl, data.x, data.y, data.width, data.height)
                 .then(() => { this.drawingActions.push(data); });
         }
 
-        // Store for potential replay
+        // Store for potential replay (sync actions only — image returns above)
         this.drawingActions.push(data);
     }
 

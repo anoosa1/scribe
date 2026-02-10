@@ -61,6 +61,11 @@ export class Room {
 
             switch (data.type) {
                 case 'draw':
+                    // Validate action exists and has an expected type
+                    if (!data.action || typeof data.action !== 'object') break;
+                    const validDrawTypes = ['start', 'draw', 'end', 'shape', 'text', 'image'];
+                    if (!validDrawTypes.includes(data.action.type)) break;
+
                     // Guard against oversized payloads (e.g. uncompressed images)
                     const actionStr = JSON.stringify(data.action);
                     if (actionStr.length > 900 * 1024) {
@@ -73,29 +78,62 @@ export class Room {
                     // Attach userId so clients can isolate per-user paths
                     const action = { ...data.action, userId: sessionId };
                     this.drawings.push(action);
-                    // Persist immediately for images (high-value), otherwise every 10 actions
-                    if (action.type === 'image' || this.drawings.length % 10 === 0) {
+                    // Persist on images, stroke ends, and every 10th action
+                    if (action.type === 'image' || action.type === 'end' || action.type === 'shape' || action.type === 'text' || this.drawings.length % 10 === 0) {
                         await this.state.storage.put('drawings', this.drawings);
                     }
                     this.broadcast({ type: 'draw', action }, ws);
                     break;
 
                 case 'cursor-move':
+                    // Validate position has numeric coordinates
+                    if (!data.position || typeof data.position.x !== 'number' || typeof data.position.y !== 'number') break;
                     this.broadcast({
                         type: 'cursor-move',
                         userId: sessionId,
-                        position: data.position
+                        position: { x: data.position.x, y: data.position.y }
                     }, ws);
                     break;
 
                 case 'undo':
+                    // User-scoped undo: find and remove the last stroke belonging to this user
                     if (this.drawings.length > 0) {
-                        this.drawings.pop();
-                        await this.state.storage.put('drawings', this.drawings);
-                        this.broadcastAll({
-                            type: 'reload-state',
-                            drawings: this.drawings
-                        });
+                        let removed = false;
+
+                        // Search backwards for the last action by this user
+                        for (let i = this.drawings.length - 1; i >= 0; i--) {
+                            const item = this.drawings[i];
+                            if (item.userId !== sessionId) continue;
+
+                            if (item.type === 'end') {
+                                // Remove entire freehand stroke: end → draws → start
+                                this.drawings.splice(i, 1); // remove 'end'
+                                // Now search backwards from i for matching start
+                                for (let j = i - 1; j >= 0; j--) {
+                                    const a = this.drawings[j];
+                                    if (a.userId === sessionId && a.type === 'start') {
+                                        this.drawings.splice(j, i - j); // remove start + all draws
+                                        break;
+                                    }
+                                }
+                                removed = true;
+                                break;
+                            } else if (item.type === 'shape' || item.type === 'text' || item.type === 'image') {
+                                // Atomic action — just remove it
+                                this.drawings.splice(i, 1);
+                                removed = true;
+                                break;
+                            }
+                            // Skip 'start' and 'draw' — they're part of an in-progress stroke
+                        }
+
+                        if (removed) {
+                            await this.state.storage.put('drawings', this.drawings);
+                            this.broadcastAll({
+                                type: 'reload-state',
+                                drawings: this.drawings
+                            });
+                        }
                     }
                     break;
 

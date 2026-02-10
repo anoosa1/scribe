@@ -25,6 +25,9 @@ export class WebSocketClient {
         this.ws.onopen = () => {
             console.log('WebSocket connected');
             this.reconnectAttempts = 0;
+            if (this.handlers.onConnectionChange) {
+                this.handlers.onConnectionChange('connected');
+            }
         };
 
         this.ws.onmessage = (event) => {
@@ -38,6 +41,9 @@ export class WebSocketClient {
 
         this.ws.onclose = (event) => {
             console.log('WebSocket closed:', event.code, event.reason);
+            if (this.handlers.onConnectionChange) {
+                this.handlers.onConnectionChange('disconnected');
+            }
             this.attemptReconnect();
         };
 
@@ -50,6 +56,9 @@ export class WebSocketClient {
         if (this.reconnectAttempts < this.maxReconnectAttempts) {
             this.reconnectAttempts++;
             console.log(`Reconnecting... attempt ${this.reconnectAttempts}`);
+            if (this.handlers.onConnectionChange) {
+                this.handlers.onConnectionChange('connecting');
+            }
             setTimeout(() => this.connect(), this.reconnectDelay * this.reconnectAttempts);
         }
     }
@@ -99,6 +108,10 @@ export class WebSocketClient {
     }
 
     emitCursorMove(position) {
+        // Throttle to 20 updates/sec max to avoid flooding
+        const now = Date.now();
+        if (this._lastCursorEmit && now - this._lastCursorEmit < 50) return;
+        this._lastCursorEmit = now;
         this.send('cursor-move', { position });
     }
 

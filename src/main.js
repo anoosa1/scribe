@@ -32,12 +32,75 @@ const init = () => {
 
     let canvas;
 
+    // Remote cursor state
+    const remoteCursors = new Map(); // userId -> { element, timeout }
+    const cursorColors = ['#ef4444', '#3b82f6', '#22c55e', '#f97316', '#8b5cf6', '#ec4899', '#14b8a6', '#f59e0b'];
+    let colorIndex = 0;
+    const cursorColorMap = new Map(); // userId -> color
+    const remoteCursorsContainer = document.getElementById('remote-cursors');
+
+    const getCursorColor = (userId) => {
+        if (!cursorColorMap.has(userId)) {
+            cursorColorMap.set(userId, cursorColors[colorIndex % cursorColors.length]);
+            colorIndex++;
+        }
+        return cursorColorMap.get(userId);
+    };
+
     const socket = new WebSocketClient(roomId, {
         onDraw: (action) => canvas && canvas.drawRemote(action),
-        onCursorMove: (data) => { /* Remote cursors */ },
+        onCursorMove: (data) => {
+            if (!canvas || !remoteCursorsContainer) return;
+            const { userId, position } = data;
+            if (!userId || !position) return;
+
+            let cursor = remoteCursors.get(userId);
+            if (!cursor) {
+                // Create cursor element using DOM API (avoid innerHTML for XSS safety)
+                const el = document.createElement('div');
+                el.className = 'remote-cursor';
+                const color = getCursorColor(userId);
+
+                const pointer = document.createElement('div');
+                pointer.className = 'remote-cursor-pointer';
+                pointer.style.color = color;
+
+                const label = document.createElement('div');
+                label.className = 'remote-cursor-label';
+                label.style.background = color;
+                label.textContent = userId.substring(0, 4);
+
+                el.appendChild(pointer);
+                el.appendChild(label);
+                remoteCursorsContainer.appendChild(el);
+                cursor = { element: el, timeout: null };
+                remoteCursors.set(userId, cursor);
+            }
+
+            // Position cursor using canvas transform
+            const px = position.x * canvas.scale + canvas.offsetX;
+            const py = position.y * canvas.scale + canvas.offsetY;
+            cursor.element.style.left = px + 'px';
+            cursor.element.style.top = py + 'px';
+            cursor.element.style.display = 'block';
+
+            // Auto-hide after 5s of inactivity
+            clearTimeout(cursor.timeout);
+            cursor.timeout = setTimeout(() => {
+                cursor.element.style.display = 'none';
+            }, 5000);
+        },
         onUserCount: (count) => { document.getElementById('user-count').textContent = count; },
         onClear: () => canvas && canvas.clear(),
-        onReloadState: (drawings) => canvas && canvas.reloadFromState(drawings)
+        onReloadState: (drawings) => canvas && canvas.reloadFromState(drawings),
+        onConnectionChange: (status) => {
+            const statusEl = document.getElementById('connection-status');
+            if (!statusEl) return;
+            const dot = statusEl.querySelector('.status-dot');
+            dot.className = 'status-dot ' + (status === 'connected' ? 'connected' : status === 'connecting' ? 'connecting' : 'disconnected');
+            const labels = { connected: 'Connected', connecting: 'Reconnecting...', disconnected: 'Disconnected' };
+            statusEl.title = labels[status] || status;
+        }
     });
 
     canvas = new Canvas(canvasEl, socket, onZoomChange);
@@ -169,7 +232,8 @@ const init = () => {
             'l': 'line',
             'r': 'rectangle',
             'c': 'circle',
-            't': 'text'
+            't': 'text',
+            'h': 'pan'
         };
 
         if (shortcuts[e.key.toLowerCase()]) {

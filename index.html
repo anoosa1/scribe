@@ -186,7 +186,8 @@
           <path d="M18 11V6a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v0"></path>
           <path d="M14 10V4a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v2"></path>
           <path d="M10 10.5V6a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v8"></path>
-          <path d="M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15"></path>
+          <path d="M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15">
+          </path>
         </svg>
       </button>
       <!-- Undo -->
@@ -212,6 +213,8 @@
     <main class="canvas-area">
       <div class="canvas-container" id="canvas-container">
         <canvas id="whiteboard"></canvas>
+        <!-- Remote cursor overlays -->
+        <div id="remote-cursors"></div>
       </div>
 
       <!-- Zoom Controls -->
@@ -243,6 +246,9 @@
             <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
           </svg>
           <span id="user-count">1</span>
+          <span class="connection-status" id="connection-status" title="Connecting...">
+            <span class="status-dot connecting"></span>
+          </span>
         </div>
       </div>
 

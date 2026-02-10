@@ -469,9 +469,88 @@ canvas.panning:active {
   background: var(--accent-hover);
 }
 
+/* Connection Status */
+.connection-status {
+  display: flex;
+  align-items: center;
+  margin-left: 4px;
+}
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.status-dot.connected {
+  background: #22c55e;
+  box-shadow: 0 0 6px rgba(34, 197, 94, 0.6);
+}
+
+.status-dot.connecting {
+  background: #eab308;
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+.status-dot.disconnected {
+  background: #ef4444;
+}
+
+@keyframes pulse {
+
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.3;
+  }
+}
+
+/* Remote Cursors */
+#remote-cursors {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 10;
+}
+
+.remote-cursor {
+  position: absolute;
+  pointer-events: none;
+  transition: left 0.1s linear, top 0.1s linear;
+  z-index: 10;
+}
+
+.remote-cursor-pointer {
+  width: 0;
+  height: 0;
+  border-left: 6px solid transparent;
+  border-right: 6px solid transparent;
+  border-bottom: 10px solid currentColor;
+  transform: rotate(-30deg);
+}
+
+.remote-cursor-label {
+  font-size: 10px;
+  font-weight: 600;
+  padding: 1px 5px;
+  border-radius: 3px;
+  color: white;
+  white-space: nowrap;
+  margin-left: 8px;
+  margin-top: -2px;
+}
+
 /* ========== Mobile Toolbar (bottom bar) ========== */
 .mobile-toolbar {
-  display: none; /* Hidden on desktop */
+  display: none;
+  /* Hidden on desktop */
 }
 
 .mobile-backdrop {
@@ -655,7 +734,8 @@ canvas.panning:active {
 
   /* ---- Reposition zoom controls ---- */
   .zoom-controls {
-    bottom: 70px; /* Above mobile toolbar */
+    bottom: 70px;
+    /* Above mobile toolbar */
     right: 12px;
     padding: 6px 10px;
   }
