@@ -2,7 +2,7 @@
 
 A real-time collaborative whiteboard. Create a room, share the link, draw together.
 
-Built on Cloudflare Workers + Durable Objects for the backend, vanilla JS for the frontend. No frameworks, no nonsense.
+Built on Cloudflare Workers + Durable Objects for the backend, vanilla JS for the frontend.
 
 ## What it does
 
