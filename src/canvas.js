@@ -35,6 +35,13 @@ export class Canvas {
         // Dark mode
         this.darkMode = false;
 
+        // Canvas theme colors (defaults)
+        this.canvasBg = '#ffffff';
+        this.canvasDot = '#d0d0d0';
+        this.canvasDarkBg = '#1e1e1e';
+        this.canvasDarkDot = '#3a3a3a';
+        this.themeHasLightDark = true;
+
         // Per-user remote drawing paths (keyed by userId)
         this.remoteUserPaths = new Map();
 
@@ -50,8 +57,8 @@ export class Canvas {
     }
 
     drawBackground() {
-        const bgColor = this.darkMode ? '#1e1e1e' : '#ffffff';
-        const dotColor = this.darkMode ? '#3a3a3a' : '#d0d0d0';
+        const bgColor = this.darkMode ? this.canvasDarkBg : this.canvasBg;
+        const dotColor = this.darkMode ? this.canvasDarkDot : this.canvasDot;
 
         this.ctx.fillStyle = bgColor;
         this.ctx.fillRect(0, 0, this.virtualWidth, this.virtualHeight);
@@ -71,7 +78,7 @@ export class Canvas {
     }
 
     get bgColor() {
-        return this.darkMode ? '#1e1e1e' : '#ffffff';
+        return this.darkMode ? this.canvasDarkBg : this.canvasBg;
     }
 
     centerCanvas() {
@@ -620,6 +627,27 @@ export class Canvas {
     async setDarkMode(enabled) {
         this.darkMode = enabled;
         // Redraw background and replay all actions
+        this.drawBackground();
+        const actions = [...this.drawingActions];
+        this.drawingActions = [];
+        for (const d of actions) {
+            await this.drawRemote(d);
+        }
+    }
+
+    async setTheme(canvasColors, canvasDark, hasLightDark) {
+        this.canvasBg = canvasColors.bg;
+        this.canvasDot = canvasColors.dot;
+        this.themeHasLightDark = hasLightDark;
+        if (canvasDark) {
+            this.canvasDarkBg = canvasDark.bg;
+            this.canvasDarkDot = canvasDark.dot;
+        } else {
+            // Single-mode theme — dark canvas uses same colors
+            this.canvasDarkBg = canvasColors.bg;
+            this.canvasDarkDot = canvasColors.dot;
+        }
+        // Redraw with new colors
         this.drawBackground();
         const actions = [...this.drawingActions];
         this.drawingActions = [];

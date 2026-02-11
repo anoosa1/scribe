@@ -1,6 +1,7 @@
 import { WebSocketClient } from './websocket.js';
 import { Canvas } from './canvas.js';
 import { TOOLS } from './tools.js';
+import { THEMES } from './themes.js';
 
 const generateUUID = () => {
     return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
@@ -250,14 +251,59 @@ const init = () => {
         }
     });
 
-    // 8b. Dark Mode Toggle
+    // 8b. Theme selector
+    const themeSelect = document.getElementById('theme-select');
     const darkModeCheckbox = document.getElementById('dark-mode-checkbox');
-    const savedDarkMode = localStorage.getItem('scribe-dark-mode') === 'true';
+    const darkModeLabel = document.getElementById('dark-mode-label');
 
-    if (savedDarkMode) {
+    const applyTheme = (themeKey, saveToStorage = true) => {
+        const theme = THEMES[themeKey];
+        if (!theme) return;
+
+        // Apply CSS custom properties
+        const root = document.documentElement;
+        for (const [prop, value] of Object.entries(theme.ui)) {
+            root.style.setProperty(prop, value);
+        }
+
+        // Apply canvas colors
+        canvas.setTheme(theme.canvas, theme.canvasDark || null, theme.hasLightDark);
+
+        // Dark mode toggle logic
+        if (theme.hasLightDark) {
+            darkModeLabel.classList.remove('disabled');
+            darkModeCheckbox.disabled = false;
+        } else {
+            darkModeLabel.classList.add('disabled');
+            darkModeCheckbox.disabled = true;
+            // Reset dark mode when switching to single-mode theme
+            darkModeCheckbox.checked = false;
+            canvas.setDarkMode(false);
+        }
+
+        // Update select value
+        themeSelect.value = themeKey;
+
+        if (saveToStorage) {
+            localStorage.setItem('scribe-theme', themeKey);
+        }
+    };
+
+    // Load saved theme
+    const savedTheme = localStorage.getItem('scribe-theme') || 'default';
+    applyTheme(savedTheme, false);
+
+    // Load saved dark mode (only if theme supports it)
+    const savedDarkMode = localStorage.getItem('scribe-dark-mode') === 'true';
+    const currentTheme = THEMES[savedTheme];
+    if (savedDarkMode && currentTheme && currentTheme.hasLightDark) {
         darkModeCheckbox.checked = true;
         canvas.setDarkMode(true);
     }
+
+    themeSelect.addEventListener('change', (e) => {
+        applyTheme(e.target.value);
+    });
 
     darkModeCheckbox.addEventListener('change', () => {
         const enabled = darkModeCheckbox.checked;
