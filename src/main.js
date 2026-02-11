@@ -251,64 +251,65 @@ const init = () => {
         }
     });
 
-    // 8b. Theme selector
+    // 8b. Theme selector + dark mode toggle
     const themeSelect = document.getElementById('theme-select');
     const darkModeCheckbox = document.getElementById('dark-mode-checkbox');
     const darkModeLabel = document.getElementById('dark-mode-label');
+    let activeThemeKey = 'default';
 
-    const applyTheme = (themeKey, saveToStorage = true) => {
-        const theme = THEMES[themeKey];
-        if (!theme) return;
-
-        // Apply CSS custom properties
+    // Apply CSS vars + canvas colors for a given variant object { ui, canvas }
+    const applyVariant = (variant) => {
         const root = document.documentElement;
-        for (const [prop, value] of Object.entries(theme.ui)) {
+        for (const [prop, value] of Object.entries(variant.ui)) {
             root.style.setProperty(prop, value);
         }
+        canvas.setTheme(variant.canvas, null, false);
+    };
 
-        // Apply canvas colors
-        canvas.setTheme(theme.canvas, theme.canvasDark || null, theme.hasLightDark);
+    const applyTheme = (themeKey, isDark, saveToStorage = true) => {
+        const theme = THEMES[themeKey];
+        if (!theme) return;
+        activeThemeKey = themeKey;
 
-        // Dark mode toggle logic
         if (theme.hasLightDark) {
+            // Paired theme — use dark/light sub-object based on toggle
+            const variant = isDark ? theme.dark : theme.light;
+            applyVariant(variant);
             darkModeLabel.classList.remove('disabled');
             darkModeCheckbox.disabled = false;
         } else {
+            // Single-mode theme — apply directly, disable toggle
+            const root = document.documentElement;
+            for (const [prop, value] of Object.entries(theme.ui)) {
+                root.style.setProperty(prop, value);
+            }
+            canvas.setTheme(theme.canvas, null, false);
             darkModeLabel.classList.add('disabled');
             darkModeCheckbox.disabled = true;
-            // Reset dark mode when switching to single-mode theme
             darkModeCheckbox.checked = false;
-            canvas.setDarkMode(false);
         }
 
-        // Update select value
         themeSelect.value = themeKey;
 
         if (saveToStorage) {
             localStorage.setItem('scribe-theme', themeKey);
+            localStorage.setItem('scribe-dark-mode', isDark);
         }
     };
 
-    // Load saved theme
+    // Load saved state
     const savedTheme = localStorage.getItem('scribe-theme') || 'default';
-    applyTheme(savedTheme, false);
-
-    // Load saved dark mode (only if theme supports it)
-    const savedDarkMode = localStorage.getItem('scribe-dark-mode') === 'true';
-    const currentTheme = THEMES[savedTheme];
-    if (savedDarkMode && currentTheme && currentTheme.hasLightDark) {
-        darkModeCheckbox.checked = true;
-        canvas.setDarkMode(true);
-    }
+    const savedDarkMode = localStorage.getItem('scribe-dark-mode') !== 'false'; // default to dark
+    darkModeCheckbox.checked = savedDarkMode;
+    applyTheme(savedTheme, savedDarkMode, false);
 
     themeSelect.addEventListener('change', (e) => {
-        applyTheme(e.target.value);
+        applyTheme(e.target.value, darkModeCheckbox.checked);
     });
 
     darkModeCheckbox.addEventListener('change', () => {
-        const enabled = darkModeCheckbox.checked;
-        canvas.setDarkMode(enabled);
-        localStorage.setItem('scribe-dark-mode', enabled);
+        const isDark = darkModeCheckbox.checked;
+        applyTheme(activeThemeKey, isDark);
     });
 
     // 9. Copy Room Link
